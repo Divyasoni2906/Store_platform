@@ -1,0 +1,11 @@
+ingress:
+  enabled: true
+  ingressClassName: traefik
+
+service:
+  type: ClusterIP
+
+wordpressUsername: admin
+wordpressEmail: admin@example.com
+wordpressFirstName: Admin
+wordpressLastName: User

@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: medusa
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: medusa
+  template:
+    metadata:
+      labels:
+        app: medusa
+    spec:
+      containers:
+        - name: medusa
+          image: ghcr.io/medusajs/medusa-starter-default:latest
+          env:
+            - name: DATABASE_URL
+              value: postgres://medusa:medusa@postgres:5432/medusa
+            - name: NODE_ENV
+              value: production
+          ports:
+            - containerPort: 9000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: medusa
+spec:
+  selector:
+    app: medusa
+  ports:
+    - port: 80
+      targetPort: 9000
