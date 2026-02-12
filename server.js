@@ -75,7 +75,7 @@ function generatePassword(length = 12) {
 
 app.post("/create-store",createStoreLimiter, async (req, res) => {
   const { engine } = req.body;
-if(engine && engine !="WooCommerce"){
+if(engine && engine !="woocommerce"){
 return res.status(400).json({ message: "only woocommerce supported"});
 }
   const storeId = Date.now();
