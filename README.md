@@ -1,23 +1,30 @@
-# 🚀 Store Provisioning Platform (Kubernetes + Helm)
+# Store Provisioning Platform  
+## Kubernetes-Native Multi-Tenant WooCommerce Orchestration (Local → Production)
 
-A multi-tenant store provisioning platform that dynamically provisions isolated WooCommerce stores on Kubernetes using Helm.
+A **multi-tenant store provisioning platform** that dynamically provisions fully isolated WooCommerce stores on Kubernetes using Helm.
 
-This project demonstrates Kubernetes-native orchestration, namespace isolation, production guardrails, and local-to-production portability.
+This project demonstrates:
+
+- Kubernetes-native orchestration  
+- Namespace isolation  
+- Production guardrails  
+- Clean lifecycle management  
+- Local-to-production portability  
 
 ---
 
 # 📌 Features
 
-- Dynamic store provisioning
-- Namespace-per-store isolation
-- Helm-based deployment
-- Persistent MariaDB per store
-- Ingress exposure via Traefik
-- ResourceQuota & LimitRange per namespace
-- Rate limiting for abuse prevention
-- Failure reporting with clear error visibility
-- Clean teardown (Helm uninstall + namespace delete)
-- End-to-end WooCommerce checkout (COD enabled)
+- ✅ Dynamic store provisioning  
+- ✅ Namespace-per-store isolation  
+- ✅ Helm-based deployment  
+- ✅ Persistent MariaDB per store  
+- ✅ Ingress exposure via Traefik  
+- ✅ ResourceQuota & LimitRange per namespace  
+- ✅ Rate limiting (5 store creations/min per IP)  
+- ✅ Failure reporting with clear status  
+- ✅ Clean teardown (Helm uninstall + namespace delete)  
+- ✅ End-to-end WooCommerce checkout (COD enabled)
 
 ---
 
@@ -25,46 +32,57 @@ This project demonstrates Kubernetes-native orchestration, namespace isolation, 
 
 ## 1️⃣ Dashboard (React + Vite)
 
-- Displays all stores and their status
-- Allows store creation and deletion
-- Shows admin credentials only when status = `Ready`
-- Displays provisioning failures
-- Polls only when provisioning exists
+- Displays all stores and their status:
+  - `Provisioning`
+  - `Ready`
+  - `Failed`
+- Create & delete stores
+- Shows credentials only when store is **Ready**
+- Polls backend only during provisioning phase
 
-## 2️⃣ Backend API (Node.js + Express)
+---
 
-- Orchestrates provisioning using Helm and kubectl
+## 2️⃣ Backend (Node.js + Express)
+
+- Orchestrates provisioning via:
+  - `Helm`
+  - `kubectl`
 - Stores state in SQLite (`better-sqlite3`)
-- Implements rate limiting
-- Stores failure reasons
-- Applies Kubernetes guardrails
-- Controls lifecycle of each store
+- Applies rate limiting
+- Handles failure reporting
+- Manages full lifecycle of each store
 
-## 3️⃣ Kubernetes Layer (k3d /
+---
 
-Each store runs inside:
+## 3️⃣ Kubernetes Layer (k3d)
 
-- Dedicated namespace
-- Dedicated WordPress deployment
-- Dedicated MariaDB StatefulSet
-- Dedicated PVC
-- Dedicated Ingress host
+Each store runs inside a dedicated namespace containing:
+
+- WordPress Deployment  
+- MariaDB StatefulSet  
+- Dedicated PVC  
+- Dedicated Ingress host  
 
 ---
 
 # 🔁 Provisioning Flow
 
 1. User clicks **Create Store**
-2. Backend:
-   - Validates engine (WooCommerce only in Round 1)
+2. Backend performs:
+
+   - Validates engine (WooCommerce)
    - Inserts DB record (`Provisioning`)
-   - Installs Helm chart in new namespace
-   - Waits for rollout completion
-   - Installs WooCommerce plugin
+   - Creates namespace
+   - Applies ResourceQuota & LimitRange
+   - Installs Helm chart
+   - Waits for rollout readiness
+   - Installs WooCommerce via WP-CLI
    - Creates demo product
    - Enables Cash on Delivery
-3. Status updated to `Ready`
-4. URL and credentials displayed
+   - Verifies checkout flow
+
+3. Status updated to **Ready**
+4. Store URL + credentials displayed in dashboard
 
 ---
 
@@ -72,49 +90,20 @@ Each store runs inside:
 
 Each store receives:
 
-- Its own namespace
-- Its own database instance
-- Independent persistent storage
-- Independent resource limits
-- Independent lifecycle management
+- Its own namespace  
+- Its own database  
+- Independent persistent storage  
+- Independent resource limits  
+- Independent lifecycle management  
 
-## Why Namespace-per-Store?
+### Why namespace-per-store?
 
-**Advantages:**
+✔ Strong isolation  
+✔ Clean blast-radius containment  
+✔ Guaranteed teardown  
 
-- Strong isolation
-- Clean blast radius containment
-- Simple full teardown
-- Clear resource boundaries
-
-**Tradeoff:**
-
-- Higher object count in cluster
-
-Isolation and operational clarity were prioritized over minimal object footprint.
-
----
-
-# 📦 Helm Deployment Strategy
-
-Two values files handle environment differences:
-
-- `values-local.yaml`
-- `values-prod.yaml`
-
-### Local Example
-
-```bash
-helm install store1 ./wordpress -f helm-values/values-local.yaml
-```
-
-### Production Example
-
-```bash
-helm install store1 ./wordpress -f helm-values/values-prod.yaml
-```
-
-No chart logic changes required between environments.
+**Tradeoff:**  
+Higher Kubernetes object count.
 
 ---
 
@@ -124,10 +113,9 @@ No chart logic changes required between environments.
 
 Limits:
 
-- CPU usage
-- Memory usage
-- PVC count
-- Object count
+- 2 CPU cores  
+- 2Gi memory  
+- 2Gi persistent storage  
 
 Prevents cluster resource exhaustion.
 
@@ -135,40 +123,31 @@ Prevents cluster resource exhaustion.
 
 ## ✅ LimitRange
 
-Ensures:
+Default per container:
 
-- Default memory requests
-- Enforced memory limits
+- 250m CPU request  
+- 256Mi memory request  
+- 500m CPU limit  
+- 512Mi memory limit  
 
-Prevents noisy neighbor behavior.
+Prevents noisy-neighbor behavior.
 
 ---
 
 ## ✅ Rate Limiting
 
-Applied to `/create-store` route.
+- 5 store creations per minute per IP  
 
-- Maximum 5 store creations per minute per IP.
-
-Prevents abuse and provisioning storms.
-
----
-
-## ✅ Failure Reporting
-
-If provisioning fails:
-
-- Status updated to `Failed`
-No silent failures.
+Prevents provisioning abuse.
 
 ---
 
 # 🔐 Secret Handling
 
-- Admin password generated per store
-- No hardcoded credentials in code
-- Credentials displayed only when store is `Ready`
-- Database credentials handled via Helm chart
+- Admin password generated per store  
+- No hardcoded credentials  
+- Credentials shown only when status = `Ready`  
+- Database secrets handled via Helm templates  
 
 ---
 
@@ -176,64 +155,89 @@ No silent failures.
 
 Deleting a store triggers:
 
-1. Helm uninstall
-2. Namespace deletion
-3. Database status update
+```bash
+helm uninstall <store>
+kubectl delete namespace <store-namespace>
+```
 
-Namespace deletion guarantees:
+Namespace deletion ensures removal of:
 
-- Pod cleanup
-- PVC removal
-- Secret removal
-- Ingress removal
+- Pods  
+- PVCs  
+- Secrets  
+- Services  
+- Ingress  
 
 No orphaned resources remain.
 
 ---
 
-# ⚙️ Scaling Strategy
+# 🌍 Local Setup Instructions
 
-## Horizontal Scaling (Platform)
+## 1️⃣ Start Kubernetes (k3d)
 
-Can scale independently:
-
-- Backend API (stateless)
-- Dashboard frontend
-- Ingress controller
-
-SQLite can be replaced with Postgres in production for horizontal DB scaling.
+```bash
+k3d cluster create dev-cluster
+```
 
 ---
 
-## Provisioning Throughput
+## 2️⃣ Start Backend
 
-Current approach:
-
-- Sequential Helm invocation
-
-Future production improvement:
-
-- Queue-based worker model
-- Controlled concurrency limits
+```bash
+cd store-platform
+node server.js
+```
 
 ---
 
-# 🌍 Local-to-Production Story
+## 3️⃣ Start Dashboard
 
-## Local Environment
+```bash
+cd dashboard
+npm install
+npm run dev
+```
 
-- k3d 
-- Traefik ingress
-- `*.localhost` host mapping
+---
 
-## Production Environment
+## 4️⃣ Create Store
 
-- k3s on VPS
-- Real DNS
-- TLS via cert-manager
-- `values-prod.yaml`
+Open dashboard → Click **Create Store**
 
-Only Helm values change. Chart remains identical.
+Access via:
+
+```
+http://store-xxxx.localhost
+```
+
+Add to cart → Checkout → Verify order in admin panel.
+
+---
+
+# 🌎 Production-Like Setup (k3s on VPS)
+
+1. Install k3s on VPS  
+2. Configure DNS (`store.example.com`)  
+3. Use production values file:
+
+```bash
+helm install store1 ./wordpress -f helm-values/values-prod.yaml
+```
+
+---
+
+## Production Differences
+
+Handled via `values-prod.yaml`:
+
+- Real DNS  
+- Production storage class  
+- Higher resource limits  
+- TLS via cert-manager  
+- Replace SQLite with Postgres  
+
+No chart logic changes required.
 
 ---
 
@@ -255,73 +259,68 @@ Helm revision history preserves previous states.
 
 ---
 
-# 🎯 Tradeoffs
+# 🧠 System Design & Tradeoffs
 
-## Why WooCommerce Only?
+## Architecture Choice
 
-The assignment allows implementing one engine fully.
+Control-plane style orchestration:
 
-WooCommerce was selected because:
+- React UI  
+- Node backend (imperative orchestration)  
+- Helm for execution  
 
-- Stable Helm support
-- WP-CLI automation capability
-- Faster provisioning stability
-- Simpler operational model
+Helm chosen over a full Kubernetes Operator for:
 
-Medusa scaffolding exists but is intentionally disabled for production reliability.
+- Faster iteration  
+- Simpler development model  
 
----
-
-## Why SQLite?
-
-**Pros:**
-
-- Zero infrastructure dependency
-- Simple local development
-
-**Cons:**
-
-- Not horizontally scalable
-
-Production plan: Replace with Postgres.
+**Tradeoff:**  
+Imperative model instead of declarative reconciliation loop.
 
 ---
 
-# 🧪 Local Setup Instructions
+## Idempotency & Failure Handling
 
-1. Start k3d or k3s
-2. Start backend:
+- Status stored as:
+  - `Provisioning`
+  - `Ready`
+  - `Failed`
+- Explicit rollout checks
+- Timeout handling
+- Errors surfaced to dashboard
+  
+---
 
-```bash
-node server.js
-```
-
-3. Start dashboard:
-
-```bash
-npm run dev
-```
-
-4. Create a store
-5. Access via:
-
-```
-http://store-xxxx.localhost
-```
+Medusa scaffolding exists but is disabled for production stability.
 
 ---
 
-# 📌 Definition of Done
+# 📈 Scaling Strategy
 
-A store is considered `Ready` only when:
+### Current
 
-- WordPress pod is ready
-- MariaDB is ready
-- WooCommerce is installed
-- Demo product exists
-- COD payment method enabled
-- Ingress is reachable
-- Order placement verified end-to-end
+- Sequential Helm provisioning  
+- SQLite state store  
+
+### Production Improvements
+
+- Replace SQLite with Postgres  
+- Add job queue for provisioning  
+- Concurrency control  
+- Horizontal scaling of API layer  
+
+---
+
+# 🎯 Definition of Done
+
+A store is marked **Ready** only when:
+
+- WordPress pod is ready  
+- MariaDB is ready  
+- WooCommerce installed  
+- Demo product exists  
+- COD enabled  
+- Order placement verified end-to-end  
 
 ---
 
@@ -329,11 +328,11 @@ A store is considered `Ready` only when:
 
 This platform demonstrates:
 
-- Kubernetes-native provisioning
-- Multi-tenant namespace isolation
-- Resource guardrails
-- Helm-based reproducibility
-- Clean lifecycle management
-- Local-to-production portability
+- Kubernetes-native provisioning  
+- Multi-tenant namespace isolation  
+- Resource guardrails  
+- Helm-based reproducibility  
+- Clean lifecycle management  
+- Local-to-production portability  
 
-Designed for operational correctness, extensibility, and production-readiness.
+Designed for operational correctness, extensibility, and production readiness.
